@@ -11,10 +11,15 @@ class CPU:
         self.pc = 0
         self.ir = None
         self.ram = [0] * 256
+        self.sp = 255
         self.commands = {
             0b00000001: self.hlt,
             0b10000010: self.ldi,
-            0b01000111: self.prn
+            0b01000111: self.prn,
+            0b10100010: self.mul,
+            0b01000110: self.pop,
+            0b01010000: self.call,
+            0b00010011: self.iret
         }
 
     def ram_read(self, address):
@@ -34,26 +39,65 @@ class CPU:
         print(self.reg[operand_a])
         return(2, True)
 
-    def load(self):
+    def mul(self, operand_a, operand_b):
+        self.alu("MUL", operand_a, operand_b)
+        return (3, True)
+
+    def push(self, operand_a, operand_b):
+        reg_address = self.ram[self.pc + 1]
+        self.sp -= 1
+        value = self.reg[reg_address]
+        self.ram[self.sp] = value
+        return (2, True)
+    
+    def pop(self, operand_a, operand_b):
+        pop_value = self.ram[self.sp]
+        reg_address = self.ram[self.pc + 1]
+        self.reg[reg_address] = pop_value
+        self.sp += 1
+        return (2, True)
+
+    def call(self, operand_a, *args):
+        self.sp -= 1
+        self.ram_write(self.sp, self.pc)
+        self.push(operand_a)
+        self.pc = self.mdr - 2
+
+    def iret(self, *args):
+        self.pop(self.mdr)
+        self.pc = self.ram[self.sp] + 1
+
+    def load(self, program):
         """Load a program into memory."""
 
         address = 0
 
         # For now, we've just hardcoded a program:
 
-        program = [
+        #program = [
             # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+        #    0b10000010, # LDI R0,8
+        #    0b00000000,
+        #    0b00001000,
+        #    0b01000111, # PRN R0
+        #    0b00000000,
+        #    0b00000001, # HLT
+        #]
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        #for instruction in program:
+        #    self.ram[address] = instruction
+        #    address += 1
+        with open(program) as f:
+            for line in f:
+                comment_split = line.split('#')
+                num = comment_split[0].strip()
+
+                try:
+                    self.ram_write(int(num, 2), address)
+                    address += 1
+                except ValueError:
+                    print("Value Error")
+                    pass
 
 
 
@@ -63,6 +107,8 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
+        elif op == "MUL":
+            self.reg[reg_a] = (self.reg[reg_a] * self.reg[reg_b])
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -89,16 +135,19 @@ class CPU:
     def run(self):
         """Run the CPU."""
         running = True
-
+        
         while running:
             instruction_register = self.ram_read(self.pc)
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
 
             try:
-                operation_op = self.commands[instruction_register](operand_a, operand_b)
+                f = self.commands[instruction_register]
+                # print(f)
+                operation_op = f(operand_a, operand_b
+                                 )
                 running = operation_op[1]
-                self.pc =+ operation_op[0]
+                self.pc += operation_op[0]
 
             except:
                 print(f"Error: Instruction {instruction_register} not found")
