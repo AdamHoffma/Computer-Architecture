@@ -11,15 +11,17 @@ class CPU:
         self.pc = 0
         self.ir = None
         self.ram = [0] * 256
-        self.sp = 255
+        self.sp = 256
         self.commands = {
             0b00000001: self.hlt,
             0b10000010: self.ldi,
             0b01000111: self.prn,
             0b10100010: self.mul,
+            0b01000101: self.push,
             0b01000110: self.pop,
             0b01010000: self.call,
-            0b00010011: self.iret
+            0b00010001: self.iret,
+            0b10100000: self.add
         }
 
     def ram_read(self, address):
@@ -42,30 +44,39 @@ class CPU:
     def mul(self, operand_a, operand_b):
         self.alu("MUL", operand_a, operand_b)
         return (3, True)
+    
+    def add(self, operand_a, operand_b):
+        self.alu("ADD", operand_a, operand_b)
+        return (3, True)
 
     def push(self, operand_a, operand_b):
-        reg_address = self.ram[self.pc + 1]
+        #reg_address = self.ram[self.pc + 1]
         self.sp -= 1
-        value = self.reg[reg_address]
+        value = self.reg[operand_a]
         self.ram[self.sp] = value
         return (2, True)
     
     def pop(self, operand_a, operand_b):
         pop_value = self.ram[self.sp]
-        reg_address = self.ram[self.pc + 1]
+        reg_address = operand_a
         self.reg[reg_address] = pop_value
         self.sp += 1
         return (2, True)
 
-    def call(self, operand_a, *args):
-        self.sp -= 1
-        self.ram_write(self.sp, self.pc)
-        self.push(operand_a)
-        self.pc = self.mdr - 2
+    def call(self, operand_a, operand_b):
+        next_address = self.pc + 2
+        self.reg[2] = next_address
+        self.push(2, None)
 
+        routine_address = self.reg[operand_a]
+        self.pc = routine_address
+        return (0, True)
+    
     def iret(self, *args):
-        self.pop(self.mdr)
-        self.pc = self.ram[self.sp] + 1
+        self.pop(2, None)
+        next_address = self.reg[2]
+        self.pc = next_address
+        return (0, True)
 
     def load(self, program):
         """Load a program into memory."""
