@@ -13,7 +13,8 @@ class CPU:
         self.commands = {
             0b00000001: self.hlt,
             0b10000010: self.ldi,
-            0b01000111: self.prn
+            0b01000111: self.prn,
+            0b10100010: self.mul
         }
 
     def ram_read(self, address):
@@ -33,10 +34,23 @@ class CPU:
         print(self.reg[op_a])
         return (2, True)
 
-    def load(self):
+    def mul(self, op_a, op_b):
+        self.alu('MUL', op_a, op_b)
+        return (3, True)
+
+    def load(self, program):
         """Load a program into memory."""
 
         address = 0
+        with open(program) as f:
+            for line in f:
+                comment_split = line.split('#')
+                num = comment_split[0].strip()
+                if num == "":
+                    continue
+                val = int(num, 2)
+                self.ram[address] = val
+                address +=1
 
         # For now, we've just hardcoded a program:
 
@@ -60,7 +74,8 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "MUL": 
+            self.reg[reg_a] = self.reg[reg_a] * self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
